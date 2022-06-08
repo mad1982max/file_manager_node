@@ -1,8 +1,10 @@
 import { stdin, stdout } from "node:process";
-import { Transform, Duplex } from "stream";
+import { Transform, Duplex } from "node:stream";
+import { readdir, lstat, mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import os from "os";
+
 import { argsConstructor } from "./utils/argsParsing.js";
 import { insertDataInsteadTmpl } from "./utils/insertDataInsteadTmpl.js";
 import {
@@ -12,12 +14,17 @@ import {
   defaultName,
   templateBye,
   currentPositionMessage,
+  unknown_operation,
+  execution_error,
 } from "./constants.js";
+import { commandParsing } from "./utils/commandParsing.js";
+import { commandSwitcher } from "./utils/commandSwitcher.js";
 
-const currentPosition = os.homedir();
+let currentPosition =
+  "C:\\Users\\Maksym_Bezrodnyi\\documents\\projects\\file_manager_node\\src" || os.homedir();
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const args = process.argv.slice(2);
 const argsObj = argsConstructor(args);
@@ -26,33 +33,49 @@ const userName = argsObj[defaultGreetingKey] || defaultName;
 const greetingString = insertDataInsteadTmpl(templateGreeting, defaultTmpl, userName);
 const buyString = insertDataInsteadTmpl(templateBye, defaultTmpl, userName);
 
-const stream = new Duplex({
-  read(r) {
-    // console.log(r);
+const tunnel = new Transform({
+  read(number) {
+    // console.log("...reading ", number);
   },
-  transform(chunk, encoding, cb) {
-    this.push(chunk);
-    cb();
-  },
-  write(chunk, encoding, cb) {
-    this.push(chunk);
-    cb();
+  async transform(chunk, encoding, cb) {
+    try {
+      const inputData = encoding === "buffer" ? chunk.toString() : chunk;
+      const parsedCommand = commandParsing(inputData);
+
+      if (parsedCommand) {
+        const { answer, newPosition } = await commandSwitcher(parsedCommand, currentPosition);
+        currentPosition = newPosition;
+        if (answer) this.push(answer + "\n");
+
+        this.push(`${currentPositionMessage} ${currentPosition}\n`);
+        cb();
+      } else {
+        this.push(`${unknown_operation}\n`);
+        this.push(`${currentPositionMessage} ${currentPosition}\n`);
+        cb();
+      }
+    } catch (e) {
+      this.push(`${execution_error}\n`);
+      this.push(`${currentPositionMessage} ${currentPosition}\n`);
+      cb();
+    }
   },
 });
 
-stream
+tunnel
   .on("close", () => console.log("close"))
   .on("error", () => console.log("error"))
   .on("finish", () => console.log("finish"))
   .on("end", () => console.log("end"));
 
 process.on("SIGINT", function () {
-  console.log(buyString);
+  stdout.write(buyString);
   process.exit();
 });
 
 //Initial greeting and init position
-stream.push(greetingString + "\n");
-stream.push(`${currentPositionMessage} ${currentPosition}\n`);
+tunnel.push(greetingString);
+tunnel.push(`${currentPositionMessage} ${currentPosition}\n`);
 
-stdin.pipe(stream).pipe(stdout);
+stdin.setEncoding("utf-8");
+stdin.pipe(tunnel).pipe(stdout);

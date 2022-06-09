@@ -60,7 +60,6 @@ export const commandSwitcher = async (commandObj, currentPosition) => {
         const pathToResourceItem = path.join(currentPosition, pathToFile);
         const fileName = path.basename(pathToFile);
         const pathToTargetItem = path.join(currentPosition, pathToDirectory, fileName);
-        console.log(pathToResourceItem, pathToTargetItem);
         await cp(pathToResourceItem, pathToTargetItem, { recursive: true });
         break;
       }

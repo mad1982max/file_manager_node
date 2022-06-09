@@ -1,16 +1,14 @@
-export const commandParsing = (string) => {
-  const clearedString = string.trim();
-  if (clearedString) {
-    let [command, ...params] = clearedString.split(" ");
+export const cliParsing = (cliInput) => {
+  const clearedCliInput = cliInput.trim();
+  if (clearedCliInput) {
+    let [command, ...params] = clearedCliInput.split(" ");
 
     if (params.length > 0) {
       params = params.map((param) => {
-        const cutParam = param.startsWith("--") ? param.slice(2) : param;
-        return cutParam;
+        return param.startsWith("--") ? param.slice(2) : param;
       });
     }
-    const commandObj = { command: command.toLowerCase(), params };
-    return commandObj;
+    return { command: command.toLowerCase(), params };
   } else {
     return null;
   }

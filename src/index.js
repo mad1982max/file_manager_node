@@ -1,80 +1,69 @@
 import { stdin, stdout } from "node:process";
-import { Transform, Duplex } from "node:stream";
-import { readdir, lstat, mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
-import path from "path";
-import { fileURLToPath } from "url";
+import { Transform } from "node:stream";
 import os from "os";
-
+import { viewer } from "./utils/viewer.js";
 import { argsConstructor } from "./utils/argsParsing.js";
 import { insertDataInsteadTmpl } from "./utils/insertDataInsteadTmpl.js";
-import {
-  templateGreeting,
-  defaultGreetingKey,
-  defaultTmpl,
-  defaultName,
-  templateBye,
-  currentPositionMessage,
-  unknown_operation,
-  execution_error,
-} from "./constants.js";
-import { commandParsing } from "./utils/commandParsing.js";
+import { cliParsing } from "./utils/commandParsing.js";
 import { commandSwitcher } from "./utils/commandSwitcher.js";
+import {
+  TMPL_GREET,
+  DEFAULT_GREET_KEY,
+  DEFAULT_TMPL,
+  DEFAULT_NAME,
+  TMPL_BYE,
+  CURRENT_POSITION_MESSAGE,
+  INVALID_INPUT,
+  OPERATION_FAILED,
+} from "./constants.js";
 
-let currentPosition =
-  "C:\\Users\\Maksym_Bezrodnyi\\documents\\projects\\file_manager_node\\src" || os.homedir();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+let currentPosition = os.homedir();
 
 const args = process.argv.slice(2);
 const argsObj = argsConstructor(args);
 
-const userName = argsObj[defaultGreetingKey] || defaultName;
-const greetingString = insertDataInsteadTmpl(templateGreeting, defaultTmpl, userName);
-const buyString = insertDataInsteadTmpl(templateBye, defaultTmpl, userName);
+const userName = argsObj[DEFAULT_GREET_KEY] || DEFAULT_NAME;
+const greetingMessage = insertDataInsteadTmpl(TMPL_GREET, DEFAULT_TMPL, userName);
+const byeMessage = insertDataInsteadTmpl(TMPL_BYE, DEFAULT_TMPL, userName);
 
 const tunnel = new Transform({
-  read(number) {
-    // console.log("...reading ", number);
-  },
   async transform(chunk, encoding, cb) {
     try {
       const inputData = encoding === "buffer" ? chunk.toString() : chunk;
-      const parsedCommand = commandParsing(inputData);
+      const parsedCliString = cliParsing(inputData);
 
-      if (parsedCommand) {
-        const { answer, newPosition } = await commandSwitcher(parsedCommand, currentPosition);
+      if (parsedCliString) {
+        const { response, newPosition } = await commandSwitcher(parsedCliString, currentPosition);
         currentPosition = newPosition;
-        if (answer) this.push(answer + "\n");
-        this.push(`${currentPositionMessage} ${currentPosition}\n`);
+        if (response) {
+          this.push(viewer(response) + "\n");
+        }
         cb();
       } else {
-        this.push(`${unknown_operation}\n`);
-        this.push(`${currentPositionMessage} ${currentPosition}\n`);
+        this.push(`${INVALID_INPUT}\n`);
         cb();
       }
+      this.push(`${CURRENT_POSITION_MESSAGE} ${currentPosition}\n`);
     } catch (e) {
-      this.push(`${execution_error}\n`);
-      this.push(`${currentPositionMessage} ${currentPosition}\n`);
+      this.push(`${OPERATION_FAILED}\n`);
+      this.push(`${CURRENT_POSITION_MESSAGE} ${currentPosition}\n`);
       cb();
     }
   },
 });
 
-tunnel
-  .on("close", () => console.log("close"))
-  .on("error", () => console.log("error"))
-  .on("finish", () => console.log("finish"))
-  .on("end", () => console.log("end"));
+tunnel.on("error", (err) => console.log("error: ", err.message));
 
 process.on("SIGINT", function () {
-  stdout.write(buyString);
   process.exit();
 });
 
-//Initial greeting and init position
-tunnel.push(greetingString);
-tunnel.push(`${currentPositionMessage} ${currentPosition}\n`);
+process.on("exit", () => {
+  stdout.write(byeMessage);
+});
+
+tunnel.push(greetingMessage);
+tunnel.push(`${CURRENT_POSITION_MESSAGE} ${currentPosition}\n`);
 
 stdin.setEncoding("utf-8");
 stdin.pipe(tunnel).pipe(stdout);

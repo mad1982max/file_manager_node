@@ -1,4 +1,4 @@
-import { readdir, lstat, mkdir, copyFile, readFile, writeFile } from "node:fs/promises";
+import { readdir, lstat, mkdir, copyFile, readFile, writeFile, rename } from "node:fs/promises";
 import path from "path";
 import os from "os";
 
@@ -38,6 +38,16 @@ export const commandSwitcher = async (commandObj, currentPosition) => {
       answer = await writeFile(newPath, "");
       break;
     }
+
+    case "rn":
+      const [pathToFile, newFileName] = params;
+      const pathToResourceFile = path.join(currentPosition, pathToFile);
+      const pathToResourceFolder = path.dirname(pathToResourceFile);
+
+      const pathToTargetFile = path.join(pathToResourceFolder, newFileName);
+
+      await rename(pathToResourceFile, pathToTargetFile);
+      break;
 
     case "os": {
       const flag = params[0];

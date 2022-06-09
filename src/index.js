@@ -46,7 +46,6 @@ const tunnel = new Transform({
         const { answer, newPosition } = await commandSwitcher(parsedCommand, currentPosition);
         currentPosition = newPosition;
         if (answer) this.push(answer + "\n");
-
         this.push(`${currentPositionMessage} ${currentPosition}\n`);
         cb();
       } else {
